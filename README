@@ -27,3 +27,7 @@ This partly breaks X11 integration due to hardware limitations. The video
 area can't be overlapped by other windows. For fullscreen use this is no
 problem.
 Note: this needs G2D, so make sure that you have write access to /dev/g2d.
+
+You can play video on second screen (when using separate framebuffer on /dev/fb1) with VDPAU_SCREEN
+enviroment variable.
+    $ export VDPAU_SCREEN=1

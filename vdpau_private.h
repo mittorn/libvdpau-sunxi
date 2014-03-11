@@ -39,6 +39,7 @@ typedef struct
 	int fd;
 	int g2d_fd;
 	int osd_enabled;
+	int screen_i;
 } device_ctx_t;
 
 typedef struct video_surface_ctx_struct
@@ -70,6 +71,11 @@ typedef struct
 	int fd;
 	int layer;
 	int layer_top;
+	int sc_src_width;
+	int sc_src_height;
+	int sc_width;
+	int sc_height;
+	int screen_i;
 } queue_target_ctx_t;
 
 typedef struct

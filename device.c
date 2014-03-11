@@ -54,6 +54,14 @@ VdpStatus vdp_imp_device_create_x11(Display *display,
 			VDPAU_DBG("Failed to open /dev/g2d! OSD disabled.");
 	}
 
+	char *env_vdpau_screen=getenv("VDPAU_SCREEN");
+	if(env_vdpau_screen)
+	{
+		dev->screen_i=atoi(env_vdpau_screen);
+	}
+	else
+		dev->screen_i=0;
+
 	int handle = handle_create(dev);
 	if (handle == -1)
 	{

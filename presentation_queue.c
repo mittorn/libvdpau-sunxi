@@ -53,6 +53,7 @@ VdpStatus vdp_presentation_queue_target_create_x11(VdpDevice device,
 
 	qt->drawable = drawable;
 	qt->fd = open("/dev/disp", O_RDWR);
+	qt->screen_i=dev->screen_i;
 	if (qt->fd == -1)
 	{
 		free(qt);
@@ -67,7 +68,21 @@ VdpStatus vdp_presentation_queue_target_create_x11(VdpDevice device,
 		return VDP_STATUS_ERROR;
 	}
 
-	uint32_t args[4] = { 0, DISP_LAYER_WORK_MODE_SCALER, 0, 0 };
+	__disp_layer_info_t layer_info;
+	uint32_t args[4] = { dev->screen_i, 100, &layer_info, 0 };
+	qt->sc_src_width=1;
+	qt->sc_src_height=1;
+	qt->sc_width=1;
+	qt->sc_height=1;
+	if(ioctl(qt->fd, DISP_CMD_LAYER_GET_PARA, args)>=0&&layer_info.mode==DISP_LAYER_WORK_MODE_SCALER)
+	{
+		qt->sc_src_width=layer_info.src_win.width;
+		qt->sc_src_height=layer_info.src_win.height;
+		qt->sc_width=layer_info.scn_win.width;
+		qt->sc_height=layer_info.scn_win.height;
+	}
+	args[1]=DISP_LAYER_WORK_MODE_SCALER;
+	args[2]=0;
 	qt->layer = ioctl(qt->fd, DISP_CMD_LAYER_REQUEST, args);
 	if (qt->layer == 0)
 		goto out_layer;
@@ -127,7 +142,7 @@ VdpStatus vdp_presentation_queue_target_destroy(VdpPresentationQueueTarget prese
 	if (!qt)
 		return VDP_STATUS_INVALID_HANDLE;
 
-	uint32_t args[4] = { 0, qt->layer, 0, 0 };
+	uint32_t args[4] = { qt->screen_i, qt->layer, 0, 0 };
 	ioctl(qt->fd, DISP_CMD_LAYER_CLOSE, args);
 	ioctl(qt->fd, DISP_CMD_LAYER_RELEASE, args);
 
@@ -303,10 +318,10 @@ VdpStatus vdp_presentation_queue_display(VdpPresentationQueue presentation_queue
 		layer_info.src_win.y = os->video_src_rect.y0;
 		layer_info.src_win.width = os->video_src_rect.x1 - os->video_src_rect.x0;
 		layer_info.src_win.height = os->video_src_rect.y1 - os->video_src_rect.y0;
-		layer_info.scn_win.x = x + os->video_dst_rect.x0;
-		layer_info.scn_win.y = y + os->video_dst_rect.y0;
-		layer_info.scn_win.width = os->video_dst_rect.x1 - os->video_dst_rect.x0;
-		layer_info.scn_win.height = os->video_dst_rect.y1 - os->video_dst_rect.y0;
+		layer_info.scn_win.x = x*q->target->sc_width/q->target->sc_src_width + (os->video_dst_rect.x0)*q->target->sc_width/q->target->sc_src_width;
+		layer_info.scn_win.y = y*q->target->sc_height/q->target->sc_src_height + os->video_dst_rect.y0*q->target->sc_height/q->target->sc_src_height;
+		layer_info.scn_win.width = (os->video_dst_rect.x1 - os->video_dst_rect.x0)*q->target->sc_width/q->target->sc_src_width;
+		layer_info.scn_win.height = (os->video_dst_rect.y1 - os->video_dst_rect.y0)*q->target->sc_height/q->target->sc_src_height;
 		layer_info.ck_enable = q->device->osd_enabled ? 0 : 1;
 
 		if (layer_info.scn_win.y < 0)
@@ -318,7 +333,7 @@ VdpStatus vdp_presentation_queue_display(VdpPresentationQueue presentation_queue
 			layer_info.scn_win.height -= cutoff;
 		}
 
-		uint32_t args[4] = { 0, q->target->layer, (unsigned long)(&layer_info), 0 };
+		uint32_t args[4] = { q->device->screen_i, q->target->layer, (unsigned long)(&layer_info), 0 };
 		ioctl(q->target->fd, DISP_CMD_LAYER_SET_PARA, args);
 
 		ioctl(q->target->fd, DISP_CMD_LAYER_OPEN, args);
@@ -344,7 +359,7 @@ VdpStatus vdp_presentation_queue_display(VdpPresentationQueue presentation_queue
 	}
 	else
 	{
-		uint32_t args[4] = { 0, q->target->layer, 0, 0 };
+		uint32_t args[4] = { q->device->screen_i, q->target->layer, 0, 0 };
 		ioctl(q->target->fd, DISP_CMD_LAYER_CLOSE, args);
 	}
 
@@ -381,7 +396,7 @@ VdpStatus vdp_presentation_queue_display(VdpPresentationQueue presentation_queue
 		layer_info.scn_win.width = clip_width ? clip_width : os->width;
 		layer_info.scn_win.height = clip_height ? clip_height : os->height;
 
-		uint32_t args[4] = { 0, q->target->layer_top, (unsigned long)(&layer_info), 0 };
+		uint32_t args[4] = { q->target->screen_i, q->target->layer_top, (unsigned long)(&layer_info), 0 };
 		ioctl(q->target->fd, DISP_CMD_LAYER_SET_PARA, args);
 
 		ioctl(q->target->fd, DISP_CMD_LAYER_OPEN, args);
